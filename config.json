@@ -1,0 +1,7 @@
+{
+  "port": 8008,
+  "targets": [
+    "http://localhost:9008",
+    "http://localhost:9009"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "proxy",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Thoralf-M",
+  "license": "MIT",
+  "dependencies": {
+    "http-proxy": "^1.18.0",
+    "nanoid": "^2.1.9"
+  }
+}
