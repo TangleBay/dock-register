@@ -10,7 +10,6 @@ let sslChecker = require('ssl-checker');
 http.createServer(async (req, res) => {
   try {
     if (req.method == 'POST') {
-      console.log(req.headers);
       let ip = req.headers['x-real-ip'] || (req.headers['x-forwarded-for'] || '').split(',').pop() ||
         req.connection.remoteAddress ||
         req.socket.remoteAddress ||
@@ -38,8 +37,9 @@ http.createServer(async (req, res) => {
         throw "IP from request doesn't match URL"
       }
       //check ssl certificate
-      let certificate = await sslChecker(url).catch(e => { throw "Couldn't get SSL certificate" })
-      console.log(certificate);
+      let splittedurl = url.split('.')
+      let domain = splittedurl[splittedurl.length-2]+'.'+splittedurl[splittedurl.length-1]
+      let certificate = await sslChecker(domain).catch(e => { throw "Couldn't get SSL certificate" })
       if (certificate.valid != true) {
         throw "Invalid SSL certificate"
       }
