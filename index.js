@@ -4,55 +4,62 @@ let httpProxy = require('http-proxy');
 let proxy = httpProxy.createProxyServer();
 let config = require('./config.json');
 let dns = require('dns');
-let sslChecker  = require('ssl-checker');
+let sslChecker = require('ssl-checker');
 
 // Create server and add key to post req if undefined
 http.createServer(async (req, res) => {
-  if (req.method == 'POST') {
-    let ip = (req.headers['x-forwarded-for'] || '').split(',').pop() || 
-    req.connection.remoteAddress || 
-    req.socket.remoteAddress || 
-    req.connection.socket.remoteAddress
-    let body = '';
-    await req.on('data', function (data) {
-      body += data;
-      // 1e6 === 1 * Math.pow(10, 6) === 1 * 1000000 ~~~ 1MB
-      if (body.length > 1e6) {
-        // FLOOD ATTACK OR FAULTY CLIENT, NUKE REQUEST
-        req.connection.destroy();
+  try {
+    if (req.method == 'POST') {
+      let ip = (req.headers['x-forwarded-for'] || '').split(',').pop() ||
+        req.connection.remoteAddress ||
+        req.socket.remoteAddress ||
+        req.connection.socket.remoteAddress
+        //check if not ipv6
+      if (!/^((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4}))*::((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4}))*|((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4})){7}$/g.test(ip)) {
+        ip = ip.slice(ip.lastIndexOf(':') + 1)
       }
-    });
-    let json = JSON.parse(body)
-    //get ip address from url
-    let url = json.url.slice(8).split(':')[0].split('/')[0]
-    let urlip = await lookupPromise(url)
-    //check ip address
-    if(urlip != ip){
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.write("\nIP from request doesn't match URL");
-      res.end();
-      return
-    }
-    //check ssl certificate
-    let certificate = await sslChecker(url)
-    if(certificate.valid != true){
-      res.writeHead(200, { 'Content-Type': 'text/plain' });
-      res.write("\nInvalid SSL certificate");
-      res.end();
-      return
-    }
-    //add password if undefined
-    if (typeof json.password == 'undefined') {
-      json.password = generate_key(81)
-    }
-    req.body = JSON.stringify(json);
-  }
+      let body = '';
+      await req.on('data', function (data) {
+        body += data;
+        // 1e6 === 1 * Math.pow(10, 6) === 1 * 1000000 ~~~ 1MB
+        if (body.length > 1e6) {
+          // FLOOD ATTACK OR FAULTY CLIENT, NUKE REQUEST
+          req.connection.destroy();
+        }
+      });
+      let json = JSON.parse(body)
+      //get ip address from url
+      let url = json.url.slice(8).split(':')[0].split('/')[0]
+      let urlip = await lookupPromise(url)
 
-  for (target of config.targets) {
-    proxy.web(req, res, {
-      changeOrigin: true,
-      target: target
-    });
+      //check ip address
+      if (urlip != ip) {
+        throw "IP from request doesn't match URL"
+      }
+      //check ssl certificate
+      let certificate = await sslChecker(url).catch(e => { throw "Couldn't get SSL certificate" })
+      console.log(certificate);
+      if (certificate.valid != true) {
+        throw "Invalid SSL certificate"
+      }
+      //add password if undefined
+      if (typeof json.password == 'undefined') {
+        json.password = generate_key(81)
+      }
+      req.body = JSON.stringify(json);
+    }
+
+    for (target of config.targets) {
+      proxy.web(req, res, {
+        changeOrigin: true,
+        target: target
+      });
+    }
+  } catch (e) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.write(JSON.stringify({ error: e }, null, 1));
+    res.end();
+    console.error(e);
   }
 }).listen(config.port);
 
@@ -101,10 +108,11 @@ const lookupPromise = (url) => {
 // http.createServer(async function (req, res) {
 //   console.log("antwort");
 //   let body = '';
-//     await req.on('data', function (data) {
-//       body += data;
-//     });
-//     console.log(body);
+//   await req.on('data', function (data) {
+//     body += data;
+//   });
+//   console.log(body);
+//   console.log(req.headers);
 //   // res.writeHead(200, { 'Content-Type': 'text/plain' });
 //   // res.write('request successfully proxied to: ' + req.url + '\n' + JSON.stringify(req.headers, true, 2));
 //   // res.end();
