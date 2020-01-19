@@ -3,10 +3,16 @@ let http = require('http')
 let httpProxy = require('http-proxy');
 let proxy = httpProxy.createProxyServer();
 let config = require('./config.json');
+let dns = require('dns');
+let sslChecker  = require('ssl-checker');
 
 // Create server and add key to post req if undefined
 http.createServer(async (req, res) => {
   if (req.method == 'POST') {
+    let ip = (req.headers['x-forwarded-for'] || '').split(',').pop() || 
+    req.connection.remoteAddress || 
+    req.socket.remoteAddress || 
+    req.connection.socket.remoteAddress
     let body = '';
     await req.on('data', function (data) {
       body += data;
@@ -17,6 +23,24 @@ http.createServer(async (req, res) => {
       }
     });
     let json = JSON.parse(body)
+    //get ip address from url
+    let url = json.url.slice(8).split(':')[0].split('/')[0]
+    let urlip = await lookupPromise(url)
+    //check ip address
+    if(urlip != ip){
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.write("\nIP from request doesn't match URL");
+      res.end();
+      return
+    }
+    //check ssl certificate
+    let certificate = await sslChecker(url)
+    if(certificate.valid != true){
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.write("\nInvalid SSL certificate");
+      res.end();
+      return
+    }
     //add password if undefined
     if (typeof json.password == 'undefined') {
       json.password = generate_key(81)
@@ -63,9 +87,17 @@ function generate_key() {
   return key.slice(0, 81)
 }
 
+const lookupPromise = (url) => {
+  return new Promise((resolve, reject) => {
+    dns.lookup(url, (err, address, family) => {
+      if (err) reject(err);
+      resolve(address);
+    });
+  });
+}
 
 // Create your target server
-//
+
 // http.createServer(async function (req, res) {
 //   console.log("antwort");
 //   let body = '';

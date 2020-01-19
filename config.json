@@ -1,6 +1,6 @@
 {
   "port": 8000,
   "targets": [
-    "https://api.tanglebay.org"
+    "https://lb0.tanglebay.org"
   ]
 }
