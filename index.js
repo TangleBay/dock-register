@@ -10,11 +10,12 @@ let sslChecker = require('ssl-checker');
 http.createServer(async (req, res) => {
   try {
     if (req.method == 'POST') {
-      let ip = (req.headers['x-forwarded-for'] || '').split(',').pop() ||
+      console.log(req.headers);
+      let ip = req.headers['x-real-ip'] || (req.headers['x-forwarded-for'] || '').split(',').pop() ||
         req.connection.remoteAddress ||
         req.socket.remoteAddress ||
         req.connection.socket.remoteAddress
-        //check if not ipv6
+      //check if not ipv6
       if (!/^((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4}))*::((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4}))*|((?:[0-9A-Fa-f]{1,4}))((?::[0-9A-Fa-f]{1,4})){7}$/g.test(ip)) {
         ip = ip.slice(ip.lastIndexOf(':') + 1)
       }
