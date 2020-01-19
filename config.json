@@ -1,7 +1,6 @@
 {
-  "port": 8008,
+  "port": 8000,
   "targets": [
-    "http://localhost:9008",
-    "http://localhost:9009"
+    "https://api.tanglebay.org"
   ]
 }
