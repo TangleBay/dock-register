@@ -1,14 +1,20 @@
 let nanoid = require("nanoid");
 let http = require('http')
+let https = require('https')
 let httpProxy = require('http-proxy');
 let proxy = httpProxy.createProxyServer();
 let config = require('./config.json');
 let dns = require('dns');
 let sslChecker = require('ssl-checker');
 
+let healthy = true
+
 // Create server and add key to post req if undefined
 http.createServer(async (req, res) => {
   try {
+    if (!healthy) {
+      throw "Not all LBs are up, try it again later"
+    }
     if (req.method == 'POST') {
       let ip = req.headers['x-real-ip'] || (req.headers['x-forwarded-for'] || '').split(',').pop() ||
         req.connection.remoteAddress ||
@@ -28,7 +34,7 @@ http.createServer(async (req, res) => {
         }
       });
       let json = JSON.parse(body)
-      //get ip address from url
+      // get ip address from url
       let url = json.url.slice(8).split(':')[0].split('/')[0]
       let urlip = await lookupPromise(url)
 
@@ -54,7 +60,7 @@ http.createServer(async (req, res) => {
       proxy.web(req, res, {
         changeOrigin: true,
         target: target
-      });
+      })
     }
   } catch (e) {
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -63,6 +69,30 @@ http.createServer(async (req, res) => {
     console.error(e);
   }
 }).listen(config.port);
+
+proxy.on('error', function (e) {
+  console.error(e);
+});
+
+async function checkHealth() {
+  try {
+    // console.log("currenthealth:" + healthy);
+    let newHealthStatus = true
+    for (let target of config.targets) {
+      let info = await fetch(target + "/actuator/health")
+      if (info.status != 'UP') {
+        console.error(target + " isn't up");
+        newHealthStatus = false
+      }
+    }
+    healthy = newHealthStatus
+  } catch (e) {
+    console.log(e);
+  }
+}
+
+//checkHealth request evey x seconds
+setInterval(() => checkHealth(), config.requestHealthIntervall*1000);
 
 //restream parsed body before proxying
 proxy.on('proxyReq', async function (proxyReq, req, res, options) {
@@ -102,6 +132,29 @@ const lookupPromise = (url) => {
       resolve(address);
     });
   });
+}
+
+function fetch(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (res) => {
+      let body = '';
+
+      res.on("data", (chunk) => {
+        body += chunk;
+      });
+
+      res.on("end", () => {
+        try {
+          resolve(JSON.parse(body))
+        } catch (e) {
+          resolve({ "status": e })
+        }
+      });
+
+    }).on("error", (error) => {
+      resolve({ "status": error })
+    })
+  })
 }
 
 // Create your target server

@@ -1,6 +1,7 @@
 {
   "port": 8000,
   "targets": [
-    "https://lb0.tanglebay.org"
-  ]
+    "https://lb.org"
+  ],
+  "requestHealthIntervall": 5
 }
