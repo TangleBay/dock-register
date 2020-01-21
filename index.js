@@ -5,7 +5,6 @@ let httpProxy = require('http-proxy');
 let proxy = httpProxy.createProxyServer();
 let config = require('./config.json');
 let dns = require('dns');
-let sslChecker = require('ssl-checker');
 
 let healthy = true
 
@@ -34,6 +33,12 @@ http.createServer(async (req, res) => {
         }
       });
       let json = JSON.parse(body)
+
+      //check if https
+      if (json.url.slice(0, 8) != 'https://') {
+        throw "https required"
+      }
+
       // get ip address from url
       let url = json.url.slice(8).split(':')[0].split('/')[0]
       let urlip = await lookupPromise(url)
@@ -42,13 +47,7 @@ http.createServer(async (req, res) => {
       if (urlip != ip) {
         throw "IP from request doesn't match URL"
       }
-      //check ssl certificate
-      let splittedurl = url.split('.')
-      let domain = splittedurl[splittedurl.length-2]+'.'+splittedurl[splittedurl.length-1]
-      let certificate = await sslChecker(domain).catch(e => { throw "Couldn't get SSL certificate" })
-      if (certificate.valid != true) {
-        throw "Invalid SSL certificate"
-      }
+
       //add password if undefined
       if (typeof json.password == 'undefined') {
         json.password = generate_key(81)
