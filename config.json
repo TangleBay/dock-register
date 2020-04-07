@@ -1,7 +1,7 @@
 {
   "port": 8000,
   "targets": [
-    "https://lb.org"
+    "https://lb0.org"
   ],
   "requestHealthIntervall": 5
 }

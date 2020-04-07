@@ -7,6 +7,17 @@ let config = require('./config.json');
 let dns = require('dns');
 
 let healthy = true
+let additionalRequests = 10
+let counter = {}
+setInterval(() => {
+  // console.log("counter",counter);
+  for (key of Object.keys(counter)) {
+    // console.log(key);
+    if (counter[key] >= additionalRequests) {
+      delete counter[key]
+    }
+  }
+}, 350000)
 
 // Create server and add key to post req if undefined
 http.createServer(async (req, res) => {
@@ -58,7 +69,7 @@ http.createServer(async (req, res) => {
     for (target of config.targets) {
       proxy.web(req, res, {
         changeOrigin: true,
-        target: target
+        target: target+'/nodes'
       })
     }
   } catch (e) {
@@ -79,6 +90,7 @@ async function checkHealth() {
     let newHealthStatus = true
     for (let target of config.targets) {
       let info = await fetch(target + "/actuator/health")
+      // console.log(info);
       if (info.status != 'UP') {
         console.error(target + " isn't up");
         newHealthStatus = false
@@ -86,6 +98,7 @@ async function checkHealth() {
     }
     healthy = newHealthStatus
   } catch (e) {
+    newHealthStatus = false
     console.log(e);
   }
 }
@@ -117,6 +130,64 @@ proxy.on('proxyReq', async function (proxyReq, req, res, options) {
     proxyReq.write(req.body);
   }
 });
+
+
+proxy.on('proxyRes', function (proxyRes, req, res) {
+  let body = [];
+  proxyRes.on('data', function (chunk) {
+      body.push(chunk);
+  });
+  proxyRes.on('end', async function () {
+      body = Buffer.concat(body).toString();
+      // console.log(proxyRes.req.socket.servername);
+      // console.log("method", req.method);
+      let answer = JSON.parse(body)
+      // console.log(answer);
+      if(req.method == 'DELETE' && typeof answer.url == 'undefined' && answer.message != 'There is no node for this password.'){
+        if(typeof counter[req.url] == 'undefined'){
+          counter[req.url] = 0
+        }
+        if(counter[req.url]<additionalRequests){
+          // console.log("Send request again",counter[req.url]);
+          // console.log(req.url);
+          counter[req.url]++
+          console.log(counter);
+          await new Promise(r => setTimeout(r, 30000));
+          proxy.web(req, res, {
+            changeOrigin: true,
+            target: target+'/nodes'
+          })
+        }else{
+          delete counter[req.url]
+        }
+        
+      } else if(req.method == 'DELETE'){
+        delete counter[req.url]
+      }
+
+      if(req.method == 'POST' && typeof answer.url == 'undefined' && answer.status != 409){
+        let parsedBody = JSON.parse(req.body)
+        // console.log(req.body);
+        if(typeof counter[parsedBody.url] == 'undefined'){
+          counter[parsedBody.url] = 0
+        }
+        if(counter[parsedBody.url]<additionalRequests){
+          // console.log("Send request again",counter[parsedBody.url]);
+          console.log(counter);
+          counter[parsedBody.url]++
+          await new Promise(r => setTimeout(r, 30000));
+          proxy.web(req, res, {
+            changeOrigin: true,
+            target: target+'/nodes'
+          })
+        }
+      } else if(req.method == 'POST'){
+        let parsedBody = JSON.parse(req.body)
+        delete counter[parsedBody.url]
+      }
+  });
+});
+
 
 function generate_key() {
   let id = nanoid(140);
