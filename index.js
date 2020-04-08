@@ -45,19 +45,19 @@ http.createServer(async (req, res) => {
       });
       let json = JSON.parse(body)
 
-      //check if https
-      // if (json.url.slice(0, 8) != 'https://') {
-      //   throw "https required"
-      // }
+      // check if https
+      if (json.url.slice(0, 8) != 'https://') {
+        throw "https required"
+      }
 
-      // // get ip address from url
-      // let url = json.url.slice(8).split(':')[0].split('/')[0]
-      // let urlip = await lookupPromise(url)
+      // get ip address from url
+      let url = json.url.slice(8).split(':')[0].split('/')[0]
+      let urlip = await lookupPromise(url)
 
-      // //check ip address
-      // if (urlip != ip) {
-      //   throw "IP from request doesn't match URL"
-      // }
+      //check ip address
+      if (urlip != ip) {
+        throw "IP from request doesn't match URL"
+      }
 
       //add password if undefined
       if (typeof json.password == 'undefined') {
