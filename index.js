@@ -46,18 +46,18 @@ http.createServer(async (req, res) => {
       let json = JSON.parse(body)
 
       //check if https
-      if (json.url.slice(0, 8) != 'https://') {
-        throw "https required"
-      }
+      // if (json.url.slice(0, 8) != 'https://') {
+      //   throw "https required"
+      // }
 
-      // get ip address from url
-      let url = json.url.slice(8).split(':')[0].split('/')[0]
-      let urlip = await lookupPromise(url)
+      // // get ip address from url
+      // let url = json.url.slice(8).split(':')[0].split('/')[0]
+      // let urlip = await lookupPromise(url)
 
-      //check ip address
-      if (urlip != ip) {
-        throw "IP from request doesn't match URL"
-      }
+      // //check ip address
+      // if (urlip != ip) {
+      //   throw "IP from request doesn't match URL"
+      // }
 
       //add password if undefined
       if (typeof json.password == 'undefined') {
@@ -138,34 +138,35 @@ proxy.on('proxyRes', function (proxyRes, req, res) {
       body.push(chunk);
   });
   proxyRes.on('end', async function () {
+    try{
       body = Buffer.concat(body).toString();
       // console.log(proxyRes.req.socket.servername);
       // console.log("method", req.method);
       let answer = JSON.parse(body)
-      // console.log(answer);
-      if(req.method == 'DELETE' && typeof answer.url == 'undefined' && answer.message != 'There is no node for this password.'){
-        if(typeof counter[req.url] == 'undefined'){
-          counter[req.url] = 0
-        }
-        if(counter[req.url]<additionalRequests){
-          // console.log("Send request again",counter[req.url]);
-          // console.log(req.url);
-          counter[req.url]++
-          console.log(counter);
-          await new Promise(r => setTimeout(r, 30000));
-          proxy.web(req, res, {
-            changeOrigin: true,
-            target: target+'/nodes'
-          })
-        }else{
+        // console.log(answer);
+        if(req.method == 'DELETE' && typeof answer.url == 'undefined' && answer.message != 'There is no node for this password.'){
+          if(typeof counter[req.url] == 'undefined'){
+            counter[req.url] = 0
+          }
+          if(counter[req.url]<additionalRequests){
+            // console.log("Send request again",counter[req.url]);
+            // console.log(req.url);
+            counter[req.url]++
+            console.log(counter);
+            await new Promise(r => setTimeout(r, 30000));
+            proxy.web(req, res, {
+              changeOrigin: true,
+              target: target+'/nodes'
+            })
+          }else{
+            delete counter[req.url]
+          }
+          
+        } else if(req.method == 'DELETE'){
           delete counter[req.url]
         }
         
-      } else if(req.method == 'DELETE'){
-        delete counter[req.url]
-      }
-
-      if(req.method == 'POST' && typeof answer.url == 'undefined' && answer.status != 409){
+        if(req.method == 'POST' && typeof answer.url == 'undefined' && answer.status != 409){
         let parsedBody = JSON.parse(req.body)
         // console.log(req.body);
         if(typeof counter[parsedBody.url] == 'undefined'){
@@ -185,6 +186,7 @@ proxy.on('proxyRes', function (proxyRes, req, res) {
         let parsedBody = JSON.parse(req.body)
         delete counter[parsedBody.url]
       }
+    }catch(e){console.log(e)}
   });
 });
 
