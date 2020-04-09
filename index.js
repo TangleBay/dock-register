@@ -52,10 +52,10 @@ http.createServer(async (req, res) => {
 
       // get ip address from url
       let url = json.url.slice(8).split(':')[0].split('/')[0]
-      let urlip = await lookupPromise(url)
+      let urlips = await lookupPromise(url)
 
       //check ip address
-      if (urlip != ip) {
+      if(urlips.indexOf(ip) == -1){
         throw "IP from request doesn't match URL"
       }
 
@@ -199,11 +199,15 @@ function generate_key() {
 
 const lookupPromise = (url) => {
   return new Promise((resolve, reject) => {
-    dns.lookup(url, (err, address, family) => {
+    dns.lookup(url, { all: true }, (err, addresses) => {
       if (err) reject(err);
-      resolve(address);
+      let finalAddresses = []
+      for (address of addresses) {
+        finalAddresses.push(address.address)
+      }
+      resolve(finalAddresses);
     });
-  });
+  })
 }
 
 function fetch(url) {
