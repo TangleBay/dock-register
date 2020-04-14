@@ -53,7 +53,9 @@ http.createServer(async (req, res) => {
       // get ip address from url
       let url = json.url.slice(8).split(':')[0].split('/')[0]
       let urlips = await lookupPromise(url)
-
+      console.log("request ip", ip);
+      console.log("dns ip", urlips);
+      console.log("domain", url);
       //check ip address
       if(urlips.indexOf(ip) == -1){
         throw "IP from request doesn't match URL"
